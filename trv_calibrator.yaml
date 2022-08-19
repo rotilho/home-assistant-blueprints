@@ -93,7 +93,7 @@ condition:
   - condition: template
     value_template: '{{ temperature_sensor_state != "unavailable" }}'
   - condition: template
-    value_template: '{{ trv_calibration < new_trv_calibration_bounded - trv_calibration_step_decimals or new_trv_calibration_bounded + trv_calibration_step_decimals < trv_calibration}}'
+    value_template: '{{ new_trv_calibration_bounded < trv_calibration - trv_calibration_step or trv_calibration + trv_calibration_step < new_trv_calibration_bounded}}'
 
 
 action:
