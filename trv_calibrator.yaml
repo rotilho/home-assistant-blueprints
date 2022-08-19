@@ -23,7 +23,7 @@ blueprint:
           device_class: temperature
     trv_calibration_number_step_override:
       name: TRV Calibration State Step Override (Optional)
-      description: Sometimes the TRV support a different precision than a supported one.
+      description: Sometimes the TRV support a different precision than a supported one. Check state attributes in Developer Tools.
       default: 0
       selector:
         number:
@@ -44,11 +44,6 @@ variables:
   trv_calibration_number_state: '{{ states(trv_calibration_number) }}'
   temperature_sensor_state: '{{ states(temperature_sensor) }}'
 
-  room_temperature: '{{ temperature_sensor_state | float(0) }}'
-  trv_temperature: '{{ state_attr(trv, "current_temperature") | float(0) }}'
-  trv_calibration: '{{ trv_calibration_number_state | float(0) }}'
-  trv_calibration_min: '{{ state_attr(trv_calibration_number, "min") | float(-5) }}'
-  trv_calibration_max: '{{ state_attr(trv_calibration_number, "max") | float(5) }}'
   trv_calibration_step: >- 
                         {% if trv_calibration_number_step_override == 0 %}
                           {{ state_attr(trv_calibration_number, "step") | float(1) }}
@@ -62,8 +57,13 @@ variables:
                                 {%- else -%}
                                   {{ 0 }}
                                 {%- endif %}
+  room_temperature: '{{ temperature_sensor_state | float(0) }}'
+  trv_temperature: '{{ state_attr(trv, "current_temperature") | float(0) }}'
+  trv_calibration: '{{ trv_calibration_number_state | float(0) }}'
+  trv_calibration_min: '{{ state_attr(trv_calibration_number, "min") | float(-5) }}'
+  trv_calibration_max: '{{ state_attr(trv_calibration_number, "max") | float(5) }}'
   new_trv_calibration: '{{ room_temperature - trv_temperature + trv_calibration }}'
-  new_trv_calibration_bounded: '{{ [ [ (new_trv_calibration - new_trv_calibration % trv_calibration_step) | round(trv_calibration_step_decimals, "floor"), trv_calibration_min ] | max, trv_calibration_max ] | min }}'
+  new_trv_calibration_bounded: '{{ [ [ (new_trv_calibration - new_trv_calibration % trv_calibration_step) | round(trv_calibration_step_decimals), trv_calibration_min ] | max, trv_calibration_max ] | min }}'
 
 trigger:
   - platform: state
@@ -93,7 +93,7 @@ condition:
   - condition: template
     value_template: '{{ temperature_sensor_state != "unavailable" }}'
   - condition: template
-    value_template: '{{ new_trv_calibration_bounded != trv_calibration }}'
+    value_template: '{{ trv_calibration < new_trv_calibration_bounded - trv_calibration_step_decimals or new_trv_calibration_bounded + trv_calibration_step_decimals < trv_calibration}}'
 
 
 action:
