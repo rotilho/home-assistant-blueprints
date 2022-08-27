@@ -23,7 +23,7 @@ blueprint:
           device_class: temperature
     trv_calibration_number_step_override:
       name: TRV Calibration State Step Override (Optional)
-      description: Sometimes the TRV support a different precision than a supported one. Check state attributes in Developer Tools.
+      description: Sometimes the TRV support a different precision than the home assistant one. Check state attributes in Developer Tools.
       default: 0
       selector:
         number:
@@ -40,7 +40,7 @@ variables:
   trv_calibration_number_step_override: !input trv_calibration_number_step_override
   temperature_sensor: !input temperature_sensor
 
-  trv_state: '{{ states(trv) }}'
+  trv_attribute: '{{ state_attr(trv, "current_temperature") }}'
   trv_calibration_number_state: '{{ states(trv_calibration_number) }}'
   temperature_sensor_state: '{{ states(temperature_sensor) }}'
 
@@ -87,11 +87,11 @@ trigger:
 
 condition:
   - condition: template
-    value_template: '{{ trv_state != "unavailable" }}'
+    value_template: '{{ trv_attribute != None }}'
   - condition: template
-    value_template: '{{ trv_calibration_number_state != "unavailable" }}'
+    value_template: '{{ trv_calibration_number_state != "unavailable" and trv_calibration_number_state != "unknown" }}'
   - condition: template
-    value_template: '{{ temperature_sensor_state != "unavailable" }}'
+    value_template: '{{ temperature_sensor_state != "unavailable" and temperature_sensor_state != "unknown" }}'
   - condition: template
     value_template: '{{ new_trv_calibration_bounded < trv_calibration - trv_calibration_step or trv_calibration + trv_calibration_step < new_trv_calibration_bounded}}'
 
