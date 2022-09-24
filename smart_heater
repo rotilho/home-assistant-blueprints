@@ -1,0 +1,126 @@
+blueprint:
+  name: Smart Heater
+  description: Smartly heat a room using proximity, time and workday
+  domain: automation
+  input:
+    proximity:
+      name: Proximity Sensor
+      selector:
+        entity:
+          domain: proximity
+    override:
+      name: Override
+      description: Turn heat on anyways
+      selector:
+        entity:
+          domain: binary_sensor
+    use_workday_sensor_flag:
+      name: Use Workday Sensor
+      default: true
+      selector:  
+        boolean:
+    reverse_workday_sensor_flag:
+      name: Reverse Workday Sensor
+      description: If you want to run just non workdays. This flag won't work if Workday Sensor is not being used
+      default: false
+      selector:  
+        boolean:
+    away_distance:
+      name: Away Distance
+      selector:
+        number:
+          min: 0
+          max: 100
+          step: 1
+    away_temperature:
+      name: Away Temperature
+      selector:
+        number:
+          min: 0
+          max: 30
+          step: 0.1
+          unit_of_measurement: °C
+    active_temperature:
+      name: Active Temperature
+      selector:
+        number:
+          min: 0
+          max: 30
+          step: 0.1
+          unit_of_measurement: °C
+    active_time_start:
+      name: Active Time Start
+      selector:
+        time:
+    active_time_end:
+      name: Active Time End
+      selector:
+        time:
+    climate:
+      name: Climate
+      selector:
+        entity:
+          domain: climate
+
+mode: restart
+
+variables:
+  proximity: !input proximity
+  override: !input override
+
+  use_workday_sensor_flag: !input use_workday_sensor_flag
+  reverse_workday_sensor_flag: !input reverse_workday_sensor_flag
+  away_distance: !input away_distance
+  away_temperature: !input away_temperature
+  active_temperature: !input active_temperature
+  active_time_start: !input active_time_start
+  active_time_end: !input active_time_end
+
+  climate: !input climate
+
+  proximity_state: '{{ states(proximity) }}'
+  proximity_direction: '{{ state_attr(proximity, "dir_of_travel") }}'
+  override_state: '{{ states(override) }}'
+
+  current_active_distance: '{{ [away_distance - proximity_state, 0] | max }}'
+  max_temperature_difference: '{{ active_temperature - away_temperature }}'
+  temperature_per_distance: '{{ max_temperature_difference / away_distance }}'
+  step: '{{ state_attr(climate, "target_temp_step") }}'
+  within_hours: '{{ today_at(active_time_start) <= now() and now() < today_at(active_time_end) }}'
+  active_day: >-
+              {% set active_day = not use_workday_sensor_flag or states("binary_sensor.workday_sensor") == "on" %}
+              {% if reverse_workday_sensor_flag -%}
+                {{ not active_day }}
+              {%- else -%}
+                {{ active_day }}
+              {%- endif %}
+  new_setpoint: '{{ current_active_distance * temperature_per_distance + away_temperature }}'
+  new_setpoint_bounded: >- 
+                        {% if override_state != '' and override_state == "on" -%}
+                          {{ active_temperature }}
+                        {% elif away_distance <= proximity_state or not within_hours or not active_day  -%}
+                          {{ away_temperature }}
+                        {% elif proximity_direction == "towards" -%}
+                          {{ active_temperature }}
+                        {%- else -%}
+                          {{ new_setpoint - new_setpoint % step }}
+                        {%- endif %}
+
+ 
+trigger:
+  - platform: time
+    at: !input active_time_start
+  - platform: time
+    at: !input active_time_end
+  - platform: state
+    entity_id: !input proximity
+  - platform: state
+    entity_id: !input override
+
+
+action:
+  - service: climate.set_temperature
+    target:
+      entity_id: !input climate
+    data:
+      temperature: '{{ new_setpoint_bounded }}'
