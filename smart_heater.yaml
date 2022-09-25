@@ -1,6 +1,6 @@
 blueprint:
   name: Smart Heater
-  description: Smartly heat a room using proximity, time and workday
+  description: Smartly heat a room using proximity, time and workday.
   domain: automation
   input:
     proximity:
@@ -14,17 +14,6 @@ blueprint:
       selector:
         entity:
           domain: binary_sensor
-    use_workday_sensor_flag:
-      name: Use Workday Sensor
-      default: true
-      selector:  
-        boolean:
-    reverse_workday_sensor_flag:
-      name: Reverse Workday Sensor
-      description: If you want to run just non workdays. This flag won't work if Workday Sensor is not being used
-      default: false
-      selector:  
-        boolean:
     away_distance:
       name: Away Distance
       selector:
@@ -48,12 +37,22 @@ blueprint:
           max: 30
           step: 0.1
           unit_of_measurement: °C
-    active_time_start:
-      name: Active Time Start
+    active_time_start_weekday:
+      name: Active Time Start Weekday
       selector:
         time:
-    active_time_end:
-      name: Active Time End
+    active_time_end_weekday:
+      name: Active Time End Weekday
+      selector:
+        time:
+    active_time_start_weekend:
+      name: Active Time Start Weekend
+      description: Also includes public holidays
+      selector:
+        time:
+    active_time_end_weekend:
+      name: Active Time End Weekend
+      description: Also includes public holidays
       selector:
         time:
     climate:
@@ -68,13 +67,15 @@ variables:
   proximity: !input proximity
   override: !input override
 
-  use_workday_sensor_flag: !input use_workday_sensor_flag
-  reverse_workday_sensor_flag: !input reverse_workday_sensor_flag
   away_distance: !input away_distance
   away_temperature: !input away_temperature
   active_temperature: !input active_temperature
-  active_time_start: !input active_time_start
-  active_time_end: !input active_time_end
+
+  active_time_start_weekday: !input active_time_start_weekday
+  active_time_end_weekday: !input active_time_end_weekday
+
+  active_time_start_weekend: !input active_time_start_weekend
+  active_time_end_weekend: !input active_time_end_weekend
 
   climate: !input climate
 
@@ -86,19 +87,18 @@ variables:
   max_temperature_difference: '{{ active_temperature - away_temperature }}'
   temperature_per_distance: '{{ max_temperature_difference / away_distance }}'
   step: '{{ state_attr(climate, "target_temp_step") }}'
-  within_hours: '{{ today_at(active_time_start) <= now() and now() < today_at(active_time_end) }}'
-  active_day: >-
-              {% set active_day = not use_workday_sensor_flag or states("binary_sensor.workday_sensor") == "on" %}
-              {% if reverse_workday_sensor_flag -%}
-                {{ not active_day }}
+  active_hour: >-
+              {% set is_weekday = states("binary_sensor.workday_sensor") == "on" %}
+              {% if is_weekday -%}
+                {{ today_at(active_time_start_weekday) <= now() and now() < today_at(active_time_end_weekday) }}
               {%- else -%}
-                {{ active_day }}
+                {{ today_at(active_time_start_weekend) <= now() and now() < today_at(active_time_end_weekend) }}
               {%- endif %}
   new_setpoint: '{{ current_active_distance * temperature_per_distance + away_temperature }}'
   new_setpoint_bounded: >- 
-                        {% if override_state != '' and override_state == "on" -%}
+                        {% if override_state == "on" -%}
                           {{ active_temperature }}
-                        {% elif away_distance <= proximity_state or not within_hours or not active_day  -%}
+                        {% elif away_distance <= proximity_state or not active_hour  -%}
                           {{ away_temperature }}
                         {% elif proximity_direction == "towards" -%}
                           {{ active_temperature }}
@@ -109,9 +109,13 @@ variables:
  
 trigger:
   - platform: time
-    at: !input active_time_start
+    at: !input active_time_start_weekday
   - platform: time
-    at: !input active_time_end
+    at: !input active_time_end_weekday
+  - platform: time
+    at: !input active_time_start_weekend
+  - platform: time
+    at: !input active_time_end_weekend
   - platform: state
     entity_id: !input proximity
   - platform: state
