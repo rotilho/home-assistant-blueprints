@@ -13,7 +13,10 @@ blueprint:
       description: Turn heat on anyways
       selector:
         entity:
-          domain: binary_sensor
+          domain: 
+            - binary_sensor
+            - light
+            - switch
     away_distance:
       name: Away Distance
       selector:
