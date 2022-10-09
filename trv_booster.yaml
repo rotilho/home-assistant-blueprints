@@ -1,0 +1,49 @@
+blueprint:
+  name: TRV Booster
+  description: Some valves don't open fully when the difference is small
+  domain: automation
+  input:
+    themperature:
+      name: Themperature sensor
+      selector:
+        entity:
+          domain: sensor
+          device_class: temperature
+    themperature_min:
+      name: Minimal themperature to trig the automation
+      selector:
+        number:
+          min: 0
+          max: 100
+          step: 0.1
+    boost:
+      name: Boost number
+      selector:
+        entity:
+          domain: number
+
+mode: restart
+
+variables:
+  themperature: !input themperature
+  themperature_state: '{{ states(themperature) | float(0) }}'
+
+  themperature_min: !input themperature_min
+
+  boost: !input boost
+  boost_max: '{{ state_attr(boost, "max") | float(0) }}'
+
+trigger:
+  - platform: state
+    entity_id: !input themperature
+ 
+condition:
+  - condition: template
+    value_template: '{{ themperature_state > themperature_min }}'
+
+action:
+  - service: number.set_value
+    target:
+      entity_id: !input boost
+    data:
+      value: '{{ boost_max }}'
