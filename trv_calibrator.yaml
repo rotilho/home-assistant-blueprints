@@ -16,7 +16,8 @@ blueprint:
           domain: sensor
           device_class: temperature
     trv_calibration_number:
-      name: TRV Calibration State
+      name: TRV Calibration Number Entity
+      description: If you can't find it it's possible that your TRV don't support calibration. IN this case, consider using the Better Thermostat custom integration instead.
       selector:
         entity:
           domain: number
