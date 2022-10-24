@@ -13,7 +13,7 @@ blueprint:
       description: Turn heat on anyways
       selector:
         entity:
-          domain: 
+          domain:
             - binary_sensor
             - light
             - switch
@@ -91,25 +91,25 @@ variables:
   temperature_per_distance: '{{ max_temperature_difference / away_distance }}'
   step: '{{ state_attr(climate, "target_temp_step") }}'
   active_hour: >-
-              {% set is_weekday = states("binary_sensor.workday_sensor") == "on" %}
-              {% if is_weekday -%}
-                {{ today_at(active_time_start_weekday) <= now() and now() < today_at(active_time_end_weekday) }}
-              {%- else -%}
-                {{ today_at(active_time_start_weekend) <= now() and now() < today_at(active_time_end_weekend) }}
-              {%- endif %}
+    {% set is_weekday = states("binary_sensor.workday_sensor") == "on" %}
+    {% if is_weekday -%}
+      {{ today_at(active_time_start_weekday) <= now() and now() < today_at(active_time_end_weekday) }}
+    {%- else -%}
+      {{ today_at(active_time_start_weekend) <= now() and now() < today_at(active_time_end_weekend) }}
+    {%- endif %}
   new_setpoint: '{{ current_active_distance * temperature_per_distance + away_temperature }}'
-  new_setpoint_bounded: >- 
-                        {% if override_state == "on" -%}
-                          {{ active_temperature }}
-                        {% elif away_distance <= proximity_state or not active_hour  -%}
-                          {{ away_temperature }}
-                        {% elif proximity_direction == "towards" -%}
-                          {{ active_temperature }}
-                        {%- else -%}
-                          {{ new_setpoint - new_setpoint % step }}
-                        {%- endif %}
+  new_setpoint_bounded: >-
+    {% if override_state == "on" -%}
+      {{ active_temperature }}
+    {% elif away_distance <= proximity_state or not active_hour  -%}
+      {{ away_temperature }}
+    {% elif proximity_direction == "towards" -%}
+      {{ active_temperature }}
+    {%- else -%}
+      {{ new_setpoint - new_setpoint % step }}
+    {%- endif %}
 
- 
+
 trigger:
   - platform: time
     at: !input active_time_start_weekday
@@ -131,3 +131,4 @@ action:
       entity_id: !input climate
     data:
       temperature: '{{ new_setpoint_bounded }}'
+      hvac_mode: heat
