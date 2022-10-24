@@ -34,12 +34,12 @@ variables:
   boost_max: '{{ state_attr(boost, "max") | float(0) }}'
 
 trigger:
-  - platform: state
-    entity_id: !input themperature
+  - platform: time_pattern
+    minutes: /5
  
 condition:
   - condition: template
-    value_template: '{{ themperature_state > themperature_min }}'
+    value_template: '{{ themperature_state >= themperature_min }}'
 
 action:
   - service: number.set_value
