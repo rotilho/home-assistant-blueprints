@@ -103,7 +103,7 @@ variables:
       {{ active_temperature }}
     {% elif away_distance <= proximity_state or not active_hour  -%}
       {{ away_temperature }}
-    {% elif proximity_direction == "towards" -%}
+    {% elif proximity_state == 0 or proximity_direction == "towards" -%}
       {{ active_temperature }}
     {%- else -%}
       {{ new_setpoint - new_setpoint % step }}
@@ -131,4 +131,13 @@ action:
       entity_id: !input climate
     data:
       temperature: '{{ new_setpoint_bounded }}'
-      hvac_mode: heat
+  - if:
+      - condition: state
+        entity_id: !input climate
+        state: "off"
+    then:
+      - service: climate.set_hvac_mode
+        data:
+          hvac_mode: heat
+        target:
+          entity_id: !input climate
