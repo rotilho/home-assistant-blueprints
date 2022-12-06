@@ -28,27 +28,7 @@ mode: restart
 variables:
   trv: !input trv
   trv_calibration_number: !input trv_calibration_number
-  temperature_sensor: !input temperature_sensor
-
-  trv_attribute: '{{ state_attr(trv, "current_temperature") }}'
-  trv_calibration_number_state: '{{ states(trv_calibration_number) }}'
-  temperature_sensor_state: '{{ states(temperature_sensor) }}'
-
-  trv_calibration_step: '{{ state_attr(trv_calibration_number, "step") | float(1) }}'
-  trv_calibration_step_decimals: >- 
-                                {% set step = trv_calibration_step | string %}
-                                {% if step.split(".") | length > 1 -%}
-                                  {{ step.split(".")[1] | length }}
-                                {%- else -%}
-                                  {{ 0 }}
-                                {%- endif %}
-  room_temperature: '{{ temperature_sensor_state | float(0) }}'
-  trv_temperature: '{{ state_attr(trv, "current_temperature") | float(0) }}'
-  trv_calibration: '{{ trv_calibration_number_state | float(0) }}'
-  trv_calibration_min: '{{ state_attr(trv_calibration_number, "min") | float(-5) }}'
-  trv_calibration_max: '{{ state_attr(trv_calibration_number, "max") | float(5) }}'
-  new_trv_calibration: '{{ room_temperature - trv_temperature + trv_calibration }}'
-  new_trv_calibration_bounded: '{{ [ [ (new_trv_calibration - new_trv_calibration % trv_calibration_step) | round(trv_calibration_step_decimals), trv_calibration_min ] | max, trv_calibration_max ] | min }}'
+  temperature_sensor: !input temperature_sensor                                
 
 trigger:
   - platform: state
@@ -72,23 +52,45 @@ trigger:
 
 condition:
   - condition: template
-    value_template: '{{ trv_attribute != None }}'
+    value_template: '{{ state_attr(trv, "current_temperature") != None }}'
   - condition: template
-    value_template: '{{ trv_calibration_number_state != "unavailable" and trv_calibration_number_state != "unknown" }}'
+    value_template: '{{ states(trv_calibration_number) != "unavailable" and states(trv_calibration_number) != "unknown" }}'
   - condition: template
-    value_template: '{{ temperature_sensor_state != "unavailable" and temperature_sensor_state != "unknown" }}'
-  - condition: template
-    value_template: '{{ new_trv_calibration_bounded < trv_calibration - trv_calibration_step or trv_calibration + trv_calibration_step < new_trv_calibration_bounded}}'
-
+    value_template: '{{ states(temperature_sensor) != "unavailable" and states(temperature_sensor) != "unknown" }}'
 
 action:
   - delay:
       hours: 0
-      minutes: 5
+      minutes: 1
       seconds: 0
       milliseconds: 0
   - service: number.set_value
     target:
       entity_id: !input trv_calibration_number
     data:
-      value: '{{ new_trv_calibration_bounded }}'
+      value: >- 
+            {% set room_temperature = states(temperature_sensor) | float %}
+            {% set trv_temperature = state_attr(trv, "current_temperature") | float(0) %}
+
+            {% set trv_calibration = states(trv_calibration_number) | float %}
+            {% set trv_calibration_min = state_attr(trv_calibration_number, "min") | float(-5) %}
+            {% set trv_calibration_max = state_attr(trv_calibration_number, "max") | float(5) %}
+            {% set trv_calibration_step = state_attr(trv_calibration_number, "step") | float(1) %}
+
+            {% set step = trv_calibration_step | string %}
+            
+            {% if step.split(".") | length > 1 -%}
+              {% set trv_calibration_step_decimals = step.split(".")[1] | length %}
+            {%- else -%}
+              {% set trv_calibration_step_decimals = 0 %}
+            {%- endif %}
+
+            
+            {% set new_trv_calibration = room_temperature - trv_temperature + trv_calibration %}
+            {% set new_trv_calibration_bounded = [ [ (new_trv_calibration - new_trv_calibration % trv_calibration_step) | round(trv_calibration_step_decimals), trv_calibration_min ] | max, trv_calibration_max ] | min %}
+
+            {% if new_trv_calibration_bounded < trv_calibration - trv_calibration_step or trv_calibration + trv_calibration_step < new_trv_calibration_bounded -%}
+              {{ new_trv_calibration_bounded }}
+            {%- else -%}
+              {{ states(trv_calibration_number) }}
+            {%- endif %}
