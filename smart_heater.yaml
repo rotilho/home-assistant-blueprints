@@ -4,7 +4,13 @@ blueprint:
   domain: automation
   input:
     proximity:
-      name: Proximity Sensor
+      name: Room Proximity Sensor
+      selector:
+        entity:
+          domain: proximity
+    residence_proximity:
+      name: Residence Proximity Sensor
+      description: If house is empty away temperature will be used otherwise setback temperature
       selector:
         entity:
           domain: proximity
@@ -26,6 +32,14 @@ blueprint:
           step: 1
     away_temperature:
       name: Away Temperature
+      selector:
+        number:
+          min: 0
+          max: 30
+          step: 0.1
+          unit_of_measurement: °C
+    setback_temperature:
+      name: Setback Temperature
       selector:
         number:
           min: 0
@@ -68,10 +82,12 @@ mode: restart
 
 variables:
   proximity: !input proximity
+  residence_proximity: !input residence_proximity
   override: !input override
 
   away_distance: !input away_distance
   away_temperature: !input away_temperature
+  setback_temperature: !input setback_temperature
   active_temperature: !input active_temperature
 
   active_time_start_weekday: !input active_time_start_weekday
@@ -83,6 +99,7 @@ variables:
   climate: !input climate
 
   proximity_state: '{{ states(proximity) }}'
+  residence_proximity_state: '{{ states(residence_proximity) }}'
   proximity_direction: '{{ state_attr(proximity, "dir_of_travel") }}'
   override_state: '{{ states(override) }}'
 
@@ -101,8 +118,10 @@ variables:
   new_setpoint_bounded: >-
     {% if override_state == "on" -%}
       {{ active_temperature }}
-    {% elif away_distance <= proximity_state or not active_hour  -%}
+    {% elif away_distance <= residence_proximity_state  -%}
       {{ away_temperature }}
+    {% elif not active_hour  -%}
+      {{ setback_temperature }}
     {% elif proximity_state == 0 or proximity_direction == "towards" -%}
       {{ active_temperature }}
     {%- else -%}
