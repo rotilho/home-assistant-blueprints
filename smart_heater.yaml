@@ -3,17 +3,25 @@ blueprint:
   description: Smartly heat a room using proximity, time and workday.
   domain: automation
   input:
-    proximity:
-      name: Room Proximity Sensor
+    room_proximity_nearest_distance:
+      name: Room Owner Nearest Distance
       selector:
         entity:
-          domain: proximity
-    residence_proximity:
-      name: Residence Proximity Sensor
-      description: If house is empty away temperature will be used otherwise setback temperature
+          domain: sensor
+          device_class: distance
+    room_nearest_direction_of_travel:
+      name: Room Owner Nearest Direction Of Travel
       selector:
         entity:
-          domain: proximity
+          domain: sensor
+          device_class: enum
+    residence_nearest_distance:
+      name: Residence Residents Nearest Distance
+      description: If house is empty, away temperature will be used otherwise setback temperature
+      selector:
+        entity:
+          domain: sensor
+          device_class: distance
     override:
       name: Override
       description: Turn heat on anyways
@@ -81,8 +89,9 @@ blueprint:
 mode: restart
 
 variables:
-  proximity: !input proximity
-  residence_proximity: !input residence_proximity
+  room_proximity_nearest_distance: !input room_proximity_nearest_distance
+  room_nearest_direction_of_travel: !input room_nearest_direction_of_travel
+  residence_nearest_distance: !input residence_nearest_distance
   override: !input override
 
   away_distance: !input away_distance
@@ -98,12 +107,12 @@ variables:
 
   climate: !input climate
 
-  proximity_state: '{{ states(proximity) }}'
-  residence_proximity_state: '{{ states(residence_proximity) }}'
-  proximity_direction: '{{ state_attr(proximity, "dir_of_travel") }}'
+  room_proximity_nearest_distance_state: '{{ states(room_proximity_nearest_distance) }}'
+  room_nearest_direction_of_travel_state: '{{ states(room_nearest_direction_of_travel) }}'
+  residence_nearest_distance_state: '{{ states(residence_nearest_distance) }}'
   override_state: '{{ states(override) }}'
 
-  current_active_distance: '{{ [away_distance - proximity_state, 0] | max }}'
+  current_active_distance: '{{ [away_distance - room_proximity_nearest_distance_state, 0] | max }}'
   max_temperature_difference: '{{ active_temperature - away_temperature }}'
   temperature_per_distance: '{{ max_temperature_difference / away_distance }}'
   step: '{{ state_attr(climate, "target_temp_step") }}'
@@ -118,11 +127,11 @@ variables:
   new_setpoint_bounded: >-
     {% if override_state == "on" -%}
       {{ active_temperature }}
-    {% elif away_distance <= residence_proximity_state  -%}
+    {% elif away_distance <= residence_nearest_distance_state  -%}
       {{ away_temperature }}
     {% elif not active_hour  -%}
       {{ setback_temperature }}
-    {% elif proximity_state == 0 or proximity_direction == "towards" -%}
+    {% elif room_proximity_nearest_distance_state == 0 or room_nearest_direction_of_travel_state == "towards" -%}
       {{ active_temperature }}
     {%- else -%}
       {{ new_setpoint - new_setpoint % step }}
@@ -139,7 +148,9 @@ trigger:
   - platform: time
     at: !input active_time_end_weekend
   - platform: state
-    entity_id: !input proximity
+    entity_id: !input room_proximity_nearest_distance
+  - platform: state
+    entity_id: !input residence_nearest_distance
   - platform: state
     entity_id: !input override
 
