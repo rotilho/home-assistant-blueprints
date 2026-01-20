@@ -31,7 +31,7 @@ blueprint:
           max: 60
           step: 1
 
-mode: restart
+mode: single
 
 variables:
   trv: !input trv
