@@ -21,7 +21,6 @@ blueprint:
       selector:
         entity:
           domain: number
-          device_class: temperature
     delay_in_minutes:
       name: Delay in minutes
       description: Your thermostat will take some time to update the current temperature after calibration. The delay should be higher than this time.
