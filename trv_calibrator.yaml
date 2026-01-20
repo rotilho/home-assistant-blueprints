@@ -67,11 +67,6 @@ condition:
     value_template: '{{ states(temperature_sensor) != "unavailable" and states(temperature_sensor) != "unknown" }}'
 
 action:
-  - delay:
-      hours: 0
-      minutes: !input delay_in_minutes
-      seconds: 0
-      milliseconds: 0
   - service: number.set_value
     target:
       entity_id: !input trv_calibration_number
@@ -102,3 +97,8 @@ action:
             {%- else -%}
               {{ states(trv_calibration_number) }}
             {%- endif %}
+  - delay:
+      hours: 0
+      minutes: !input delay_in_minutes
+      seconds: 0
+      milliseconds: 0
